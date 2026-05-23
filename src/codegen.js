@@ -37,18 +37,20 @@ const OPCODE_TABLE = {
  * - Strip whitespace/newlines between instructions
  * - Leave string contents and addressing suffixes intact
  *
- * Input example:  RST;  LDA I42;  STA Z3;
- * Output example: 57;00I42;01Z3;
+ * Input example:  RST;  LDA I`hello';  STA Z3;
+ * Output example: 57;00I`hello';01Z3;
  */
 function preprocessAsm(raw) {
   // Split on semicolons to get individual instruction tokens,
-  // but respect quoted strings (semicolons inside quotes are not separators).
+  // but respect string literals (semicolons inside I`...' are not separators).
+  // String literals use backtick as open delimiter and single-quote as close.
   const instructions = [];
   let current = '';
   let inString = false;
   for (let i = 0; i < raw.length; i++) {
     const ch = raw[i];
-    if (ch === '"' && raw[i-1] !== '\\') { inString = !inString; current += ch; }
+    if (!inString && ch === '`') { inString = true;  current += ch; }
+    else if (inString && ch === "'") { inString = false; current += ch; }
     else if (ch === ';' && !inString) {
       const trimmed = current.trim();
       if (trimmed) instructions.push(trimmed + ';');
@@ -69,7 +71,7 @@ function preprocessAsm(raw) {
     // by an addressing character or whitespace.
     const match = instr.match(/^([A-Z]{2,4})(.*)/s);
     if (!match) return instr; // pass through as-is (already numeric, or comment)
-    const [, name, rest] = match;
+  const [, name, rest] = match;
     const code = OPCODE_TABLE[name];
     if (code === undefined) {
       throw new CodeGenError(`Unknown opcode name '${name}' in asm block`);
@@ -149,11 +151,11 @@ class CodeGenerator {
     const PLACEHOLDER_RE = /@([A-Za-z_][A-Za-z0-9_]*)/g;
 
     const renderInstr = (instr) =>
-      instr.replace(PLACEHOLDER_RE, (_, lbl) => {
-        if (labelCharPos[lbl] === undefined)
-          throw new CodeGenError(`Undefined label '${lbl}'`);
-        return labelCharPos[lbl];
-      });
+    instr.replace(PLACEHOLDER_RE, (_, lbl) => {
+      if (labelCharPos[lbl] === undefined)
+        throw new CodeGenError(`Undefined label '${lbl}'`);
+      return labelCharPos[lbl];
+    });
 
     let changed = true;
     let rendered = [];
@@ -195,12 +197,12 @@ class CodeGenerator {
   // Raw instruction
   emit(instr) { this.lines.push(instr); }
 
-  // S# Runtime lists are 1-indexed (Scratch lists), so add 1 to every internal 0-based slot.
+  // Scratch lists are 1-indexed, so add 1 to every internal 0-based slot.
   zp(slot) { return slot + 1; }
 
   // LDA: Load immediate into A
   LDA_imm(val) {
-    if (typeof val === 'string') this.emit(`${op(0)}I"${val}";`);
+    if (typeof val === 'string') this.emit(`${op(0)}I\`${val}';`);
     else this.emit(`${op(0)}I${val};`);
   }
 
@@ -260,10 +262,10 @@ class CodeGenerator {
   CEI_A()        { this.emit(`${op(27)};`); }
 
   // String
-  JOIN_imm(s)    { this.emit(`${op(40)}I"${s}";`); }
+  JOIN_imm(s)    { this.emit(`${op(40)}I\`${s}';`); }
   JOIN_zp(slot)  { this.emit(`${op(40)}Z${slot};`); }
   LNG_A()        { this.emit(`${op(42)};`); }
-  SCT_imm(s)     { this.emit(`${op(43)}I"${s}";`); }
+  SCT_imm(s)     { this.emit(`${op(43)}I\`${s}';`); }
 
   // Control flow
   JMP(label)     { this.emit(`${op(44)}I@${label};`); }
@@ -277,7 +279,7 @@ class CodeGenerator {
   // Memory
   ALO_imm(n)     { this.emit(`${op(5)}I${n};`); }
   DLO_A()        { this.emit(`${op(6)};`); }
-  MSG(s)         { this.emit(`${op(4)}I"${s}";`); }
+  MSG(s)         { this.emit(`${op(4)}I\`${s}';`); }
   WAIT_A()       { this.emit(`${op(11)};`); }
   WAIT_imm(v)    { this.emit(`${op(11)}I${v};`); }
   SENSE(idx)     { this.emit(`${op(0)}S${idx};`); }
@@ -576,7 +578,7 @@ class CodeGenerator {
         if (idx === null)
           throw new CodeGenError(
             `Unknown sensing path 'sensing.${expr.index.join('.')}'`, expr.tok);
-        this.SENSE(idx);
+          this.SENSE(idx);
         break;
       }
 
@@ -614,65 +616,65 @@ class CodeGenerator {
         }
         break;
 
-      case 'PostOp': {
-        const slot = this.getWriteSlot(expr.operand);
-        this.LDA_zp(slot); // load old value (return value)
-        if (expr.op === '++') {
-          this.PUSH_A();
-          this.INC_A();
-          this.STA_zp(slot);
-          this.POP_A();
-        } else {
-          this.PUSH_A();
-          this.DEC_A();
-          this.STA_zp(slot);
-          this.POP_A();
-        }
-        break;
-      }
+          case 'PostOp': {
+            const slot = this.getWriteSlot(expr.operand);
+            this.LDA_zp(slot); // load old value (return value)
+            if (expr.op === '++') {
+              this.PUSH_A();
+              this.INC_A();
+              this.STA_zp(slot);
+              this.POP_A();
+            } else {
+              this.PUSH_A();
+              this.DEC_A();
+              this.STA_zp(slot);
+              this.POP_A();
+            }
+            break;
+          }
 
-      case 'BinOp':
-        this.genBinOp(expr);
-        break;
+          case 'BinOp':
+            this.genBinOp(expr);
+            break;
 
-      case 'Assign':
-        this.genAssign(expr);
-        break;
+          case 'Assign':
+            this.genAssign(expr);
+            break;
 
-      case 'Call':
-        this.genCall(expr);
-        break;
+          case 'Call':
+            this.genCall(expr);
+            break;
 
-      case 'Member':
-        // struct.field - for now generate as a zp reference
-        // In a full implementation this would use a struct layout table
-        this.genExpr(expr.obj);
-        // Field access left as-is (would need struct offset table)
-        break;
+          case 'Member':
+            // struct.field - for now generate as a zp reference
+            // In a full implementation this would use a struct layout table
+            this.genExpr(expr.obj);
+            // Field access left as-is (would need struct offset table)
+            break;
 
-      case 'Index':
-        // array[i] -> LDA Y(base + i) using X register
-        this.genExpr(expr.index);
-        // store to X implicitly via STX
-        // For now: generate base address in A, load via Y addressing
-        this.genIndexAccess(expr);
-        break;
+          case 'Index':
+            // array[i] -> LDA Y(base + i) using X register
+            this.genExpr(expr.index);
+            // store to X implicitly via STX
+            // For now: generate base address in A, load via Y addressing
+            this.genIndexAccess(expr);
+            break;
 
-      case 'NewExpr':
-        // Allocate N zero-page slots and return base slot index
-        this.LDA_imm(expr.args.length || 1);
-        this.emit(`${op(5)};`); // ALO
-        break;
+          case 'NewExpr':
+            // Allocate N zero-page slots and return base slot index
+            this.LDA_imm(expr.args.length || 1);
+            this.emit(`${op(5)};`); // ALO
+            break;
 
-      case 'CastExpr':
-        this.genExpr(expr.expr);
-        // In the S# runtime, types are dynamic; cast is largely a no-op
-        // ROUN handles int cast from float
-        if (expr.type.base === 'int') this.ROUN_A();
-        break;
+          case 'CastExpr':
+            this.genExpr(expr.expr);
+            // In scratch runtime, types are dynamic; cast is largely a no-op
+            // ROUN handles int cast from float
+            if (expr.type.base === 'int') this.ROUN_A();
+            break;
 
-      default:
-        throw new CodeGenError(`Unknown expression kind '${expr.kind}'`, expr.tok);
+          default:
+            throw new CodeGenError(`Unknown expression kind '${expr.kind}'`, expr.tok);
     }
   }
 
@@ -935,8 +937,8 @@ class CodeGenerator {
         // Variable holding a character offset — use the slot the semantic pass found
         if (callee._slot === undefined)
           throw new CodeGenError(`Cannot call '${callee.name}': no slot assigned`, expr.tok);
-        this.JSR_ind_zp(callee._slot);
-        break;
+      this.JSR_ind_zp(callee._slot);
+      break;
       case 'EntityRef':
         // Function pointer stored in an entity component attribute
         this.JSR_ind_ent(callee.entity, callee.comp, callee.attr);

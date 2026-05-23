@@ -829,7 +829,7 @@ Key S# constructs and their emitted bytecode. `Z#` indices shown are 1-based as 
 | `while (c) { }` | `[c];48I<end>;[body];44I<top>;` |
 | `foo(a, b)` | `[a];02;[b];02;45I<charOffset>;` |
 | `return x;` | `00Z#x;44I<retCharOffset>;` |
-| `broadcast "msg"` | `04I"msg";` |
+| `broadcast "msg"` | ``04I`msg';`` |
 | `wait(t)` | `[t];11;` |
 | `@Comp.0` (read) | `00DComp.0;` |
 | `E@Comp.1 = v;` (write) | `[v];01CE.Comp.1;` |
