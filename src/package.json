@@ -1,0 +1,15 @@
+{
+  "name": "ssharp",
+  "version": "0.01.0",
+  "description": "Compiler for S#: a C#-style scripting language for the Pressure Wash ECS targeting the S# Runtime",
+  "main": "src/compiler.js",
+  "bin": {
+    "slc": "./src/compiler.js"
+  },
+  "scripts": {
+    "compile": "node src/compiler.js",
+    "test": "node test/run_tests.js"
+  },
+  "keywords": ["ssharp", "compiler", "pressure-wash", "ECS", "language"],
+  "license": "GNU GPLv3"
+}
