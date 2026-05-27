@@ -34,8 +34,8 @@
 Clone the repository and you're ready to go. No build step, no `npm install`.
 
 ```bash
-git clone https://github.com/KelvinGuy1/S-Sharp-Compiler.git
-cd ssharp
+git clone [REPOSITORY_URL]
+cd S-Sharp-Compiler
 ```
 
 To make the compiler available as a global command:
@@ -160,7 +160,7 @@ fn main(): void {
 ## Project Structure
 
 ```
-ssharp/
+S-Sharp-Compiler/
 ├── src/
 │   ├── compiler.js   — Entry point and compilation pipeline
 │   ├── lexer.js      — Tokenizer
