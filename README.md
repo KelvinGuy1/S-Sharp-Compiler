@@ -34,7 +34,7 @@
 Clone the repository and you're ready to go. No build step, no `npm install`.
 
 ```bash
-git clone [REPOSITORY_URL]
+git clone https://github.com/KelvinGuy1/S-Sharp-Compiler.git
 cd ssharp
 ```
 
